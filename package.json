@@ -1,0 +1,19 @@
+{
+  "name": "worldcup2026-live-feed",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "محرك التغذية الحية لكأس العالم 2026 - Live sync from worldcup26.ir to Firebase",
+  "main": "sync.mjs",
+  "scripts": {
+    "start": "node sync.mjs",
+    "dev": "node --watch sync.mjs",
+    "prod": "pm2 start sync.mjs --name worldcup-live-sync",
+    "stop": "pm2 stop worldcup-live-sync"
+  },
+  "dependencies": {
+    "axios": "^1.18.0",
+    "express": "^4.21.2",
+    "firebase": "^10.12.2",
+    "pm2": "^5.4.3"
+  }
+}
