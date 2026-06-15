@@ -7,8 +7,7 @@
  *   worldcup26.ir (Real API) → sync.mjs (every 60s) → Firebase → App (real-time)
  */
 
-import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, get } from 'firebase/database';
+import admin from 'firebase-admin';
 import axios from 'axios';
 import https from 'https';
 import express from 'express';
@@ -29,18 +28,30 @@ server.listen(PORT, () => {
 });
 
 // ── Firebase Config ──────────────────────────────────────────────
-const firebaseConfig = {
-  apiKey: "AIzaSyB3-zgU0x36IYkggp1rPfqARMxpR777g6g",
-  authDomain: "worldcup2026-live.firebaseapp.com",
-  databaseURL: "https://worldcup2026-live-default-rtdb.firebaseio.com",
-  projectId: "worldcup2026-live",
-  storageBucket: "worldcup2026-live.firebasestorage.app",
-  messagingSenderId: "83491561729",
-  appId: "1:83491561729:web:624868e31b7ce29d9e7b00"
-};
+let serviceAccount;
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    console.warn("⚠️ Warning: FIREBASE_SERVICE_ACCOUNT environment variable is not set!");
+  }
+} catch (e) {
+  console.error("❌ Error parsing FIREBASE_SERVICE_ACCOUNT JSON. Make sure it is valid JSON.");
+}
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+if (serviceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: "https://worldcup2026-live-default-rtdb.firebaseio.com"
+  });
+} else {
+  console.warn("⚠️ Initializing without explicit credentials. Assuming Default Credentials...");
+  admin.initializeApp({
+    databaseURL: "https://worldcup2026-live-default-rtdb.firebaseio.com"
+  });
+}
+
+const db = admin.database();
 
 // ── Constants ────────────────────────────────────────────────────
 const API_BASE = 'https://worldcup26.ir';
@@ -186,7 +197,7 @@ async function syncNews() {
       isBreaking: index === 0 // الأول دائماً عاجل
     }));
 
-    await set(ref(db, 'news'), randomNews);
+    await db.ref('news').set(randomNews);
     console.log(`✅ تم تحديث الأخبار بنجاح: ${randomNews.length} مقالات`);
   } catch (err) {
     console.error(`❌ خطأ في جلب الأخبار: ${err.message}`);
@@ -272,7 +283,7 @@ async function syncNow() {
 
   try {
     // 0. Fetch existing matches to preserve and generate events
-    const dbSnapshot = await get(ref(db, 'matches'));
+    const dbSnapshot = await db.ref('matches').once('value');
     const existingMatches = dbSnapshot.exists() ? dbSnapshot.val() : {};
 
     // 1. Fetch all games from real API
@@ -377,7 +388,7 @@ async function syncNow() {
     }
 
     // 4. Write all matches to Firebase atomically
-    await set(ref(db, 'matches'), matchUpdates);
+    await db.ref('matches').set(matchUpdates);
 
     console.log(`✅ تم التحديث: ${Object.keys(matchUpdates).length} مباراة`);
     console.log(`   🔴 مباشر: ${liveCount}  |  🏁 منتهية: ${finishedCount}  |  📅 قادمة: ${upcomingCount}`);
